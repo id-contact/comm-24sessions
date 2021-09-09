@@ -17,5 +17,5 @@ env_logger = "0.9.0"
 
 [dependencies.id-contact-comm-common]
 git = "https://github.com/id-contact/comm-common.git"
-branch = "authenticated_auth_during_comm"
+rev = "20852f1"
 features = ["auth_during_comm", "session_db"]

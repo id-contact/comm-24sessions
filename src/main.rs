@@ -128,6 +128,7 @@ async fn clean_db(db: SessionDBConn) -> Result<(), Error> {
 
 #[launch]
 fn rocket() -> _ {
+    env_logger::init();
     let base = rocket::build()
         .mount(
             "/",

@@ -119,9 +119,12 @@ html, body {
         }
     }
 
-    .no-attrs {
+    .no-attrs,
+    .unauthorized,
+    .login-notice {
         color: $font-light;
         position: relative;
+        text-align: center;
         width: 350px;
         font-size: 19px;
         top: 50%;

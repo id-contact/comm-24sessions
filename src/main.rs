@@ -114,11 +114,39 @@ async fn session_info(
     host_token: String,
     config: &State<Config>,
     db: SessionDBConn,
+    token: TokenCookie,
 ) -> Result<RenderedCredentials, Error> {
-    let credentials = get_credentials_for_host(host_token, config, db)
-        .await
-        .unwrap_or_else(|_| Vec::new());
-    render_credentials(credentials, CredentialRenderType::Json)
+    if check_token(token, config).await? {
+        let credentials = get_credentials_for_host(host_token, config, db)
+            .await
+            .unwrap_or_else(|_| Vec::new());
+        return render_credentials(credentials, CredentialRenderType::Json);
+    }
+
+    Err(Error::Forbidden("Insufficient rights, try logging in to another account"))
+}
+
+#[get("/session_info/<host_token>", rank = 2)]
+async fn session_info_anon(host_token: String, config: &State<Config>) -> Result<(), Error> {
+    let login_url = format!("{}/oauth/login?redirect=/logged_in", config.external_url());
+    Err(Error::Unauthorized(login_url))
+}
+
+#[get("/logged_in")]
+async fn logged_in(
+    config: &State<Config>,
+    token: TokenCookie,
+) -> Result<String, Error> {
+    if check_token(token, config).await? {
+        return Ok("You can close this window".to_owned());
+    }
+
+    Err(Error::Forbidden("Insufficient rights, try logging in to another account"))
+}
+
+#[get("/logged_in", rank = 2)]
+async fn logged_in_anon() -> Result<String, Error> {
+    Ok("What are you doing here?".to_owned())
 }
 
 #[get("/clean_db")]
@@ -132,7 +160,7 @@ fn rocket() -> _ {
     let mut base = rocket::build()
         .mount(
             "/",
-            routes![init, start, auth_result, session_info, clean_db,],
+            routes![init, start, auth_result, session_info, session_info_anon, logged_in, logged_in_anon, clean_db,],
         )
         .attach(SessionDBConn::fairing());
 
@@ -140,6 +168,11 @@ fn rocket() -> _ {
         // Drop error value, as it could contain secrets
         panic!("Failure to parse configuration")
     });
+
+    base = match config.oauth_provider() {
+        OauthProvider::Google => base.attach(fairing_google()),
+        OauthProvider::Microsoft => base.attach(fairing_microsoft()),
+    };
 
     if let Some(sentry_dsn) = config.sentry_dsn() {
         base = base.attach(id_contact_sentry::SentryFairing::new(

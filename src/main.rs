@@ -123,7 +123,9 @@ async fn session_info(
         return render_credentials(credentials, CredentialRenderType::Json);
     }
 
-    Err(Error::Forbidden("Insufficient rights, try logging in to another account"))
+    Err(Error::Forbidden(
+        "Insufficient rights, try logging in to another account",
+    ))
 }
 
 #[get("/session_info/<host_token>", rank = 2)]
@@ -133,15 +135,14 @@ async fn session_info_anon(host_token: String, config: &State<Config>) -> Result
 }
 
 #[get("/logged_in")]
-async fn logged_in(
-    config: &State<Config>,
-    token: TokenCookie,
-) -> Result<String, Error> {
+async fn logged_in(config: &State<Config>, token: TokenCookie) -> Result<String, Error> {
     if check_token(token, config).await? {
         return Ok("You can close this window".to_owned());
     }
 
-    Err(Error::Forbidden("Insufficient rights, try logging in to another account"))
+    Err(Error::Forbidden(
+        "Insufficient rights, try logging in to another account",
+    ))
 }
 
 #[get("/logged_in", rank = 2)]
@@ -160,7 +161,16 @@ fn rocket() -> _ {
     let mut base = rocket::build()
         .mount(
             "/",
-            routes![init, start, auth_result, session_info, session_info_anon, logged_in, logged_in_anon, clean_db,],
+            routes![
+                init,
+                start,
+                auth_result,
+                session_info,
+                session_info_anon,
+                logged_in,
+                logged_in_anon,
+                clean_db,
+            ],
         )
         .attach(SessionDBConn::fairing());
 

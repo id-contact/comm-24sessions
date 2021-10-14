@@ -18,7 +18,7 @@ rocket_oauth2 = "0.5.0-rc.1"
 
 [dependencies.id-contact-comm-common]
 git = "https://github.com/id-contact/comm-common.git"
-rev = "a50bdc6c2ef9e685d872c27750e046347ac9df7e"
+rev = "a69c5598def2010bf54ce1e2d5fa5986fef9ea72"
 features = ["auth_during_comm", "session_db"]
 
 

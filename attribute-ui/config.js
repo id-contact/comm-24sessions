@@ -7,5 +7,13 @@ window.TRANSLATIONS = {
     email: 'email',
     fullname: 'naam',
     city: 'woonplaats',
+    // other strings
+    no_attributes_notice: 'Er zijn nog geen geïdentificeerde gasten.',
+    unauthorized_notice: 'U heeft niet de juiste authorisatie om de attributen te kunnen zien.',
+    login_notice: 'Om de attributen te kunnen ophalen moet u eerst inloggen',
+    error_notice: 'Er is iets fout gegaan, probeer het opnieuw',
+    loading_notice: 'Laden...',
+    login: 'inloggen',
+    again: 'opnieuw',
   }
 };

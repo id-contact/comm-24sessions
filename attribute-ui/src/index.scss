@@ -119,16 +119,33 @@ html, body {
         }
     }
 
-    .no-attrs,
-    .unauthorized,
-    .login-notice {
+    .notice {
         color: $font-light;
         position: relative;
         text-align: center;
         width: 350px;
         font-size: 19px;
-        top: 50%;
+        top: 40%;
         margin: 0 auto;
+    }
+
+    .notice-button {
+        padding: .5rem .8rem;
+        color: white;
+        background-color: rgba(52, 86, 250, 0.6);
+        border: none;
+        border-radius: 2pt;
+        font-size: 19px;
+        text-decoration: none;
+    }
+
+    .notice-button:hover {
+        cursor: pointer;
+        background-color: rgba(52, 86, 250, 0.5);
+    }
+
+    .notice-button:focus {
+        background-color: rgba(52, 86, 250, 0.7);
     }
 
     .content {

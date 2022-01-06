@@ -20,7 +20,3 @@ rocket_oauth2 = "0.5.0-rc.1"
 git = "https://github.com/id-contact/comm-common.git"
 rev = "036bf33c10cad4292acec64c5b533dab35dd2e3e"
 features = ["auth_during_comm", "session_db"]
-
-
-
-

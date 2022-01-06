@@ -179,10 +179,8 @@ fn rocket() -> _ {
         panic!("Failure to parse configuration")
     });
 
-    base = match config.oauth_provider() {
-        OauthProvider::Google => base.attach(fairing_google()),
-        OauthProvider::Microsoft => base.attach(fairing_microsoft()),
-    };
+    // attach Oauth provider fairing
+    base = base.attach(config.auth_provider().fairing());
 
     if let Some(sentry_dsn) = config.sentry_dsn() {
         base = base.attach(id_contact_sentry::SentryFairing::new(

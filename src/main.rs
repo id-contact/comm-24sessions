@@ -147,7 +147,7 @@ async fn logged_in(config: &State<Config>, token: TokenCookie) -> Result<String,
 
 #[get("/logged_in", rank = 2)]
 async fn logged_in_anon() -> Result<String, Error> {
-    Ok("What are you doing here?".to_owned())
+    Err(Error::InternalServer("Something went wrong, please close this window and try again."))
 }
 
 #[get("/clean_db")]

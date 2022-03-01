@@ -10,9 +10,8 @@ use id_contact_comm_common::{
     util::random_string,
 };
 use id_contact_proto::{ClientUrlResponse, StartRequestAuthOnly};
-use rocket::fs::{relative, NamedFile};
+use rocket::response::content::Html;
 use rocket::{get, launch, post, response::Redirect, routes, serde::json::Json, State};
-use rocket::response::status::NotFound;
 
 #[get("/init/<guest_token>")]
 async fn init(guest_token: String, config: &State<Config>) -> Result<Redirect, Error> {
@@ -153,18 +152,9 @@ async fn clean_db(db: SessionDBConn) -> Result<(), Error> {
     id_contact_comm_common::session::clean_db(&db).await
 }
 
-#[get("/config.js")]
-async fn attribute_ui_config() -> Result<NamedFile, NotFound<String>> {
-    NamedFile::open(relative!("attribute-ui/config.js"))
-        .await
-        .map_err(|_| NotFound("Not Found".to_owned()))
-}
-
 #[get("/<_token>")]
-async fn attribute_ui(_token: String) -> Result<NamedFile, NotFound<String>> {
-    NamedFile::open(relative!("attribute-ui/index.html"))
-        .await
-        .map_err(|_| NotFound("Not Found".to_owned()))
+async fn attribute_ui(_token: String) -> Html<&'static str> {
+    Html(include_str!("../attribute-ui/index.html"))
 }
 
 #[launch]
@@ -180,7 +170,6 @@ fn rocket() -> _ {
                 session_info,
                 session_info_anon,
                 clean_db,
-                attribute_ui_config,
                 attribute_ui,
             ],
         )

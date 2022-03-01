@@ -1,7 +1,7 @@
 use id_contact_comm_common::{
     auth::{check_token, render_login, render_unauthorized, TokenCookie},
     config::Config,
-    credentials::{get_credentials_for_host, render_credentials},
+    credentials::{get_credentials_for_host, get_sessions_for_host, render_credentials},
     error::Error,
     jwt::sign_auth_select_params,
     session::{Session, SessionDBConn},
@@ -10,7 +10,17 @@ use id_contact_comm_common::{
     util::random_string,
 };
 use id_contact_proto::{ClientUrlResponse, StartRequestAuthOnly};
-use rocket::{get, launch, post, response::Redirect, routes, serde::json::Json, State};
+use rocket::response::stream::{Event, EventStream};
+use rocket::serde::{Deserialize, Serialize};
+use rocket::tokio::select;
+use rocket::tokio::sync::broadcast::{channel, error::RecvError, Sender};
+use rocket::{get, launch, post, response::Redirect, routes, serde::json::Json, Shutdown, State};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+struct AttributesReceivedEvent {
+    pub attr_id: String,
+}
 
 #[get("/init/<guest_token>")]
 async fn init(guest_token: String, config: &State<Config>) -> Result<Redirect, Error> {
@@ -110,13 +120,68 @@ async fn auth_result(
     auth_result: String,
     config: &State<Config>,
     db: SessionDBConn,
+    queue: &State<Sender<AttributesReceivedEvent>>,
 ) -> Result<(), Error> {
     id_contact_jwt::decrypt_and_verify_auth_result(
         &auth_result,
         config.verifier(),
         config.decrypter(),
     )?;
-    Session::register_auth_result(attr_id, auth_result, &db).await
+    let response = Session::register_auth_result(attr_id.clone(), auth_result, &db).await;
+
+    // may fail when there are no subscribers
+    let _ = queue.send(AttributesReceivedEvent { attr_id });
+
+    response
+}
+
+#[get("/live/session_info/<host_token>")]
+async fn live_session_info(
+    queue: &State<Sender<AttributesReceivedEvent>>,
+    mut end: Shutdown,
+    host_token: String,
+    config: &State<Config>,
+    db: SessionDBConn,
+    token: TokenCookie,
+) -> EventStream![] {
+    let mut rx = queue.subscribe();
+
+    // check user is logged in
+    let authorized = match check_token(token, config).await {
+        Ok(r) => r,
+        _ => false,
+    };
+
+    // fetch all attribute ids related to thge provided host token 
+    let sessions: Vec<Session> = get_sessions_for_host(host_token, config, db)
+        .await
+        .unwrap_or(Vec::new());
+
+    EventStream! {
+        if authorized  {
+            let attr_ids: Vec<String> = sessions
+                .iter()
+                .map(|session: &Session| session.attr_id.clone())
+                .collect();
+
+            loop {
+                select! {
+                    msg = rx.recv() => match msg {
+                        Ok(msg) => {
+                            if attr_ids.contains(&msg.attr_id) {
+                                yield Event::data("update");
+                            }
+                        },
+                        Err(RecvError::Closed) => break,
+                        Err(RecvError::Lagged(_)) => continue,
+                    },
+                    _ = &mut end => break,
+                };
+            }
+        }
+
+        yield Event::data("forbidden");
+    }
 }
 
 #[get("/session_info/<host_token>")]
@@ -155,12 +220,14 @@ async fn clean_db(db: SessionDBConn) -> Result<(), Error> {
 fn rocket() -> _ {
     id_contact_sentry::SentryLogger::init();
     let mut base = rocket::build()
+        .manage(channel::<AttributesReceivedEvent>(1024).0)
         .mount(
             "/",
             routes![
                 init,
                 start,
                 auth_result,
+                live_session_info,
                 session_info,
                 session_info_anon,
                 clean_db,

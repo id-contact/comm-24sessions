@@ -12,7 +12,8 @@
         const rootElement = document.getElementById('root');
 
         function poll() {
-          fetch(`${window.SERVER_URL}/session_info/${hostToken}`, {
+          if (!document.hidden) {
+            fetch(`${window.SERVER_URL}/session_info/${hostToken}`, {
             credentials: 'include',
           })
             .then(r => r.text())
@@ -23,6 +24,7 @@
                 rootElement.innerText = noBody;
               }
             });
+          }
         }
 
         setInterval(poll, 5 * 1000);

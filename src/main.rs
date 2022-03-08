@@ -1,22 +1,22 @@
 use id_contact_comm_common::{
     auth::{check_token, render_login, render_unauthorized, TokenCookie},
     config::Config,
-    credentials::{get_credentials_for_host, get_sessions_for_host, render_credentials},
+    credentials::{get_credentials_for_host, render_credentials},
     error::Error,
     jwt::sign_auth_select_params,
     session::{Session, SessionDBConn},
     templates::{RenderType, RenderedContent},
-    types::{AuthSelectParams, FromPlatformJwt, GuestToken, StartRequest},
+    types::{AuthSelectParams, FromPlatformJwt, GuestToken, HostToken, StartRequest},
     util::random_string,
 };
 use id_contact_proto::{ClientUrlResponse, StartRequestAuthOnly};
-use rocket::response::{content::Html, status};
+use rocket::http::Status;
 use rocket::response::stream::{Event, EventStream};
+use rocket::response::{content::Html, status};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio::select;
 use rocket::tokio::sync::broadcast::{channel, error::RecvError, Sender};
 use rocket::{get, launch, post, response::Redirect, routes, serde::json::Json, Shutdown, State};
-use rocket::http::Status;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
@@ -137,7 +137,6 @@ async fn auth_result(
     response
 }
 
-
 #[get("/live/session_info/<host_token>")]
 async fn live_session_info(
     queue: &State<Sender<AttributesReceivedEvent>>,
@@ -155,6 +154,12 @@ async fn live_session_info(
         _ => false,
     };
 
+    let host_token = HostToken::from_platform_jwt(
+        &host_token,
+        config.auth_during_comm_config().host_verifier(),
+    )
+    .unwrap();
+
     EventStream! {
         if authorized  {
             yield Event::data("start");
@@ -163,22 +168,20 @@ async fn live_session_info(
                 select! {
                     msg = rx.recv() => match msg {
                         Ok(msg) => {
-                            // fetch all attribute ids related to the provided host token 
-                            let sessions: Vec<Session> = get_sessions_for_host(host_token.clone(), config, &db)
-                                .await
-                                .unwrap_or(Vec::new());
+                            // fetch all attribute ids related to the provided host token
+                            if let Ok(sessions) = Session::find_by_room_id(
+                                host_token.room_id.clone(),
+                                &db
+                            ).await {
+                                let attr_ids: Vec<String> = sessions
+                                    .iter()
+                                    .map(|session: &Session| session.attr_id.clone())
+                                    .collect();
 
-                            let attr_ids: Vec<String> = sessions
-                                .iter()
-                                .map(|session: &Session| session.attr_id.clone())
-                                .collect();
-
-                            println!("Wating for {:?}", attr_ids);
-
-                            println!("Got message: {:?}", msg);
-                            if attr_ids.contains(&msg.attr_id) {
-                                yield Event::data("update");
-                            }
+                                if attr_ids.contains(&msg.attr_id) {
+                                    yield Event::data("update");
+                                }
+                            };
                         },
                         Err(RecvError::Closed) => break,
                         Err(RecvError::Lagged(_)) => continue,
@@ -205,20 +208,20 @@ async fn session_info(
             .unwrap_or_else(|_| Vec::new());
 
         // return 404 when to credentials are found
-        if credentials.len() == 0 {
+        if credentials.is_empty() {
             return Err(Error::NotFound);
         }
 
         return Ok(status::Custom(
             Status::Unauthorized,
-            render_credentials(credentials, RenderType::Html)?
+            render_credentials(credentials, RenderType::Html)?,
         ));
     }
 
     // return 401 when the user has no valid token
     Ok(status::Custom(
         Status::Unauthorized,
-        render_unauthorized(config, RenderType::Html)?
+        render_unauthorized(config, RenderType::Html)?,
     ))
 }
 
@@ -228,11 +231,10 @@ async fn session_info_anon(
     host_token: String,
     config: &State<Config>,
 ) -> Result<status::Custom<RenderedContent>, Error> {
-
     // return 401 when the user is not logged in
     Ok(status::Custom(
         Status::Unauthorized,
-        render_login(config, RenderType::Html)?
+        render_login(config, RenderType::Html)?,
     ))
 }
 

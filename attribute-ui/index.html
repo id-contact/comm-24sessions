@@ -31,7 +31,9 @@
           const source = new EventSource(`/live/session_info/${hostToken}`, { withCredentials: true });
 
           source.onmessage = (event) => {
-            console.log(event.data);
+            if (event.data) {
+              fetchAndRender();
+            }
           };
 
           source.onerror = () => {

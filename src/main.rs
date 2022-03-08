@@ -4,7 +4,7 @@ use id_contact_comm_common::{
     credentials::{get_credentials_for_host, render_credentials},
     error::Error,
     jwt::sign_auth_select_params,
-    session::{Session, SessionDBConn, periodic_cleanup},
+    session::{periodic_cleanup, Session, SessionDBConn},
     templates::{RenderType, RenderedContent},
     types::{AuthSelectParams, FromPlatformJwt, GuestToken, StartRequest},
     util::random_string,
@@ -192,11 +192,19 @@ async fn main() -> Result<(), rocket::Error> {
         ));
     }
 
-    let base = base.manage(config).ignite().await.expect("Failed to ignite");
+    let base = base
+        .manage(config)
+        .ignite()
+        .await
+        .expect("Failed to ignite");
 
-    let connection = SessionDBConn::get_one(&base).await.expect("Failed to fetch database connection for periodic cleanup");
+    let connection = SessionDBConn::get_one(&base)
+        .await
+        .expect("Failed to fetch database connection for periodic cleanup");
     rocket::tokio::spawn(async move {
-        periodic_cleanup(&connection, None).await.expect("Failed cleanup");
+        periodic_cleanup(&connection, None)
+            .await
+            .expect("Failed cleanup");
     });
 
     base.launch().await

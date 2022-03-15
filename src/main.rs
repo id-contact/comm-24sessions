@@ -4,7 +4,7 @@ use id_contact_comm_common::{
     credentials::{get_credentials_for_host, render_credentials},
     error::Error,
     jwt::sign_auth_select_params,
-    session::{Session, SessionDBConn},
+    session::{periodic_cleanup, Session, SessionDBConn},
     templates::{RenderType, RenderedContent},
     types::{AuthSelectParams, FromPlatformJwt, GuestToken, HostToken, StartRequest},
     util::random_string,
@@ -16,7 +16,7 @@ use rocket::response::{content::Html, status};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio::select;
 use rocket::tokio::sync::broadcast::{channel, error::RecvError, Sender};
-use rocket::{get, launch, post, response::Redirect, routes, serde::json::Json, Shutdown, State};
+use rocket::{get, post, response::Redirect, routes, serde::json::Json, Shutdown, State};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
@@ -248,8 +248,8 @@ async fn attribute_ui(_token: String) -> Html<&'static str> {
     Html(include_str!("../attribute-ui/index.html"))
 }
 
-#[launch]
-fn rocket() -> _ {
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
     id_contact_sentry::SentryLogger::init();
     let mut base = rocket::build()
         .manage(channel::<AttributesReceivedEvent>(1024).0)
@@ -285,5 +285,20 @@ fn rocket() -> _ {
         ));
     }
 
-    base.manage(config)
+    let base = base
+        .manage(config)
+        .ignite()
+        .await
+        .expect("Failed to ignite");
+
+    let connection = SessionDBConn::get_one(&base)
+        .await
+        .expect("Failed to fetch database connection for periodic cleanup");
+    rocket::tokio::spawn(async move {
+        periodic_cleanup(&connection, None)
+            .await
+            .expect("Failed cleanup");
+    });
+
+    base.launch().await
 }

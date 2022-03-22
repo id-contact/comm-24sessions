@@ -207,7 +207,7 @@ async fn session_info(
             .await
             .unwrap_or_else(|_| Vec::new());
 
-        // return 404 when to credentials are found
+        // return 404 when no credentials are found
         if credentials.is_empty() {
             return Err(Error::NotFound);
         }

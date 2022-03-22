@@ -213,7 +213,7 @@ async fn session_info(
         }
 
         return Ok(status::Custom(
-            Status::Unauthorized,
+            Status::Ok,
             render_credentials(credentials, RenderType::Html)?,
         ));
     }

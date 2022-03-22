@@ -48,7 +48,7 @@
               if (status === 401) {
                 // keep polling until user is logged in
                 setTimeout(poll, 5 * 1000);
-              } else if (status === 404) {
+              } else {
                 // start listinging for server updates
                 listenForEvents();
               }

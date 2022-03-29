@@ -7,7 +7,7 @@ use id_contact_comm_common::{
     session::{periodic_cleanup, Session, SessionDBConn},
     templates::{RenderType, RenderedContent},
     types::{AuthSelectParams, FromPlatformJwt, GuestToken, HostToken, StartRequest},
-    util::random_string,
+    util::random_string, translations::Translations,
 };
 use id_contact_proto::{ClientUrlResponse, StartRequestAuthOnly};
 use rocket::http::Status;
@@ -201,6 +201,7 @@ async fn session_info(
     config: &State<Config>,
     db: SessionDBConn,
     token: TokenCookie,
+    translations: Translations,
 ) -> Result<status::Custom<RenderedContent>, Error> {
     if check_token(token, config).await? {
         let credentials = get_credentials_for_host(host_token, config, &db)
@@ -214,14 +215,14 @@ async fn session_info(
 
         return Ok(status::Custom(
             Status::Ok,
-            render_credentials(credentials, RenderType::Html)?,
+            render_credentials(credentials, RenderType::Html, translations)?,
         ));
     }
 
     // return 401 when the user has no valid token
     Ok(status::Custom(
         Status::Unauthorized,
-        render_unauthorized(config, RenderType::Html)?,
+        render_unauthorized(config, RenderType::Html, translations)?,
     ))
 }
 
@@ -230,11 +231,12 @@ async fn session_info(
 async fn session_info_anon(
     host_token: String,
     config: &State<Config>,
+    translations: Translations,
 ) -> Result<status::Custom<RenderedContent>, Error> {
     // return 401 when the user is not logged in
     Ok(status::Custom(
         Status::Unauthorized,
-        render_login(config, RenderType::Html)?,
+        render_login(config, RenderType::Html, translations)?,
     ))
 }
 

@@ -1,5 +1,5 @@
 use id_contact_comm_common::{
-    auth::{check_token, render_login, render_unauthorized, TokenCookie},
+    auth::{check_token, render_login, render_unauthorized, TokenCookie, render_not_found},
     config::Config,
     credentials::{get_credentials_for_host, render_credentials},
     error::Error,
@@ -210,7 +210,10 @@ async fn session_info(
 
         // return 404 when no credentials are found
         if credentials.is_empty() {
-            return Err(Error::NotFound);
+            return Ok(status::Custom(
+                Status::NotFound,
+                render_not_found(config, RenderType::Html, translations)?,
+            ));
         }
 
         return Ok(status::Custom(

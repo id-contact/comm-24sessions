@@ -1,13 +1,14 @@
 use id_contact_comm_common::{
-    auth::{check_token, render_login, render_unauthorized, TokenCookie, render_not_found},
+    auth::{check_token, render_login, render_not_found, render_unauthorized, TokenCookie},
     config::Config,
     credentials::{get_credentials_for_host, render_credentials},
     error::Error,
     jwt::sign_auth_select_params,
     session::{periodic_cleanup, Session, SessionDBConn},
     templates::{RenderType, RenderedContent},
+    translations::Translations,
     types::{AuthSelectParams, FromPlatformJwt, GuestToken, HostToken, StartRequest},
-    util::random_string, translations::Translations,
+    util::random_string,
 };
 use id_contact_proto::{ClientUrlResponse, StartRequestAuthOnly};
 use rocket::http::Status;
